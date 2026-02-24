@@ -1,0 +1,32 @@
+# Output files (don't track)
+*.png
+*.jpg
+*.npz
+*.msh
+*.bp/
+*.bp
+*.xdmf
+*.h5
+*.vtu
+*.pvd
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Temporary
+*.tmp
+*.log
+*.swp
+*~
+
+# OS files
+.DS_Store
+
+# VSCode
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
