@@ -1,0 +1,31 @@
+# Output files - DO NOT COMMIT
+*.png
+*.jpg
+*.jpeg
+*.npz
+*.msh
+*.bp/
+*.bp
+*.xdmf
+*.h5
+*.pvd
+*.vtu
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Temporary files
+*.tmp
+*.log
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VSCode
+.vscode/
