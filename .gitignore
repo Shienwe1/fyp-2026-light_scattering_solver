@@ -1,14 +1,15 @@
-# Output files (don't track)
+# Output files - DO NOT COMMIT
 *.png
 *.jpg
+*.jpeg
 *.npz
 *.msh
 *.bp/
 *.bp
 *.xdmf
 *.h5
-*.vtu
 *.pvd
+*.vtu
 
 # Python cache
 __pycache__/
@@ -16,7 +17,7 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Temporary
+# Temporary files
 *.tmp
 *.log
 *.swp
@@ -24,9 +25,7 @@ __pycache__/
 
 # OS files
 .DS_Store
+Thumbs.db
 
 # VSCode
 .vscode/
-
-# Jupyter
-.ipynb_checkpoints/
