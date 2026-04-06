@@ -379,25 +379,25 @@ if __name__ == "__main__":
     E_total.x.array[:] = Eb.x.array[:] + Es_h.x.array[:]
     
     # Interpolate to DG for visualization
-    V_dg = functionspace(mesh, ("Discontinuous Lagrange", degree, (mesh.geometry.dim,)))
+    V_cg = functionspace(mesh, ("Lagrange", degree, (mesh.geometry.dim,)))
     
-    Es_dg = Function(V_dg)
-    Es_dg.interpolate(Es_h)
+    Es_cg = Function(V_cg)
+    Es_cg.interpolate(Es_h)
     
-    E_tot_dg = Function(V_dg)
-    E_tot_dg.interpolate(E_total)
+    E_tot_cg = Function(V_cg)
+    E_tot_cg.interpolate(E_total)
     
-    Eb_dg = Function(V_dg)
-    Eb_dg.interpolate(Eb)
+    Eb_cg = Function(V_cg)
+    Eb_cg.interpolate(Eb)
     
     # Save to files
-    with VTXWriter(mesh.comm, "E_scattered.bp", [Es_dg]) as f:
+    with VTXWriter(mesh.comm, "E_scattered.bp", [Es_cg]) as f:
         f.write(0.0)
     
-    with VTXWriter(mesh.comm, "E_total.bp", [E_tot_dg]) as f:
+    with VTXWriter(mesh.comm, "E_total.bp", [E_tot_cg]) as f:
         f.write(0.0)
     
-    with VTXWriter(mesh.comm, "E_incident.bp", [Eb_dg]) as f:
+    with VTXWriter(mesh.comm, "E_incident.bp", [Eb_cg]) as f:
         f.write(0.0)
     
     if MPI.COMM_WORLD.rank == 0:
@@ -432,3 +432,34 @@ if __name__ == "__main__":
         print("="*70)
         print()
         print("Next step: Run mesh_convergence_study.py for quantitative validation")
+        
+from dolfinx.geometry import bb_tree, compute_collisions_points, compute_colliding_cells
+
+x_line = np.linspace(R_cyl * 1.05, R_out * 0.95, 300)
+y_line = np.zeros_like(x_line)
+pts_3d = np.column_stack([x_line, y_line, np.zeros_like(x_line)])
+
+tree       = bb_tree(mesh, mesh.topology.dim)
+candidates = compute_collisions_points(tree, pts_3d)
+cells      = compute_colliding_cells(mesh, candidates, pts_3d)
+
+Ex_line = np.zeros(len(x_line), dtype=np.complex128)
+Ey_line = np.zeros(len(x_line), dtype=np.complex128)
+
+for i in range(len(x_line)):
+    cell_list = cells.links(i)
+    if len(cell_list) > 0:
+        val = Es_cg.eval(pts_3d[i:i+1], [cell_list[0]])  # ← Es_cg not Es_h
+        Ex_line[i] = val[0]
+        Ey_line[i] = val[1]
+
+E_mag_line = np.sqrt(np.abs(Ex_line)**2 + np.abs(Ey_line)**2)
+
+np.savez('fem_scattered.npz',
+         x=x_line,
+         E_mag=E_mag_line,
+         Ex=Ex_line,
+         Ey=Ey_line)
+
+if MPI.COMM_WORLD.rank == 0:
+    print("Saved: fem_scattered.npz")
