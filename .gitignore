@@ -30,3 +30,5 @@ Thumbs.db
 # VSCode
 .vscode/codes/
 cpp
+.vscode/
+*.pvsm
