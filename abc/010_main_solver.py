@@ -391,23 +391,23 @@ if __name__ == "__main__":
     Eb_cg.interpolate(Eb)
     
     # Save to files
-    with VTXWriter(mesh.comm, "E_scattered.bp", [Es_cg]) as f:
+    with VTXWriter(mesh.comm, "E_scattered_abc.bp", [Es_cg]) as f:
         f.write(0.0)
     
-    with VTXWriter(mesh.comm, "E_total.bp", [E_tot_cg]) as f:
+    with VTXWriter(mesh.comm, "E_total_abc.bp", [E_tot_cg]) as f:
         f.write(0.0)
     
-    with VTXWriter(mesh.comm, "E_incident.bp", [Eb_cg]) as f:
+    with VTXWriter(mesh.comm, "E_incident_abc.bp", [Eb_cg]) as f:
         f.write(0.0)
     
     if MPI.COMM_WORLD.rank == 0:
         print("Results saved:")
-        print("  E_scattered.bp - Scattered field")
-        print("  E_total.bp     - Total field")
-        print("  E_incident.bp  - Incident field")
+        print("  E_scattered_abc.bp - Scattered field")
+        print("  E_total_abc.bp     - Total field")
+        print("  E_incident_abc.bp  - Incident field")
         print()
         print("Open in ParaView for visual validation:")
-        print("  1. Load E_total.bp")
+        print("  1. Load E_total_abc.bp")
         print("  2. Apply 'Calculator' filter: sqrt(E[:,0]^2 + E[:,1]^2)")
         print("  3. Verify shadow region and standing wave patterns")
         print()

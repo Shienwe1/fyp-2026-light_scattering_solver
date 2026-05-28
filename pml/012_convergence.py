@@ -54,9 +54,15 @@ MESH_FACTORS = [1.2, 0.9, 0.6, 0.45, 0.35]
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _l2_norm(fn):
-    """Global L2 norm of a DOLFINx Function."""
-    val = assemble_scalar(form(inner(fn, fn) * dx))
+def _l2_norm(fn, cell_tags, physical_marker=2):
+    """
+    L2 norm restricted to the physical background domain only.
+    Excludes PML regions where fields are non-physical.
+    physical_marker=2 matches _TAG_BKG in 010_main_solver.py.
+    """
+    mesh   = fn.function_space.mesh
+    dx_sub = ufl.Measure("dx", domain=mesh, subdomain_data=cell_tags)
+    val    = assemble_scalar(form(inner(fn, fn) * dx_sub(physical_marker)))
     return float(np.sqrt(abs(val)))
 
 
@@ -132,13 +138,13 @@ if __name__ == "__main__":
                   f"(mesh_factor = {mf})")
             print(f"  lc_cyl = {lc_cyl:.5f}  |  lc_dom = {lc_dom:.5f}")
 
-        Es_h, Eb, mesh, num_cells, num_dofs, h_avg = solve_pec_cylinder(
+        Es_h, Eb, mesh, cell_tags, num_cells, num_dofs, h_avg = solve_pec_cylinder(
             lc_cyl, lc_dom,
             mesh_filename=f"mesh_level{level+1}.msh",
         )
 
-        # L2 norm of scattered field
-        l2_norm = _l2_norm(Es_h)
+        # L2 norm restricted to physical background domain (excludes PML)
+        l2_norm = _l2_norm(Es_h, cell_tags, physical_marker=2)
 
         # Interpolate to CG for pointwise sampling
         V_cg  = functionspace(mesh, ("Lagrange", degree, (mesh.geometry.dim,)))
@@ -206,7 +212,6 @@ if __name__ == "__main__":
     if comm.rank == 0:
         h_arr    = np.array([r["h_avg"]    for r in records])
         l2_arr   = np.array([r["l2_err"]   for r in records])
-        norm_arr = np.array([r["l2_norm"]  for r in records])
         dof_arr  = np.array([r["num_dofs"] for r in records])
         kh_arr   = np.array([r["kh"]       for r in records])
 
@@ -217,24 +222,24 @@ if __name__ == "__main__":
         # Left: L2 error vs h (vs Mie reference)
         ax = axes[0]
         mask = l2_arr > 0
-        ax.loglog(h_arr[mask], l2_arr[mask], "bo-", lw=2.5, ms=9,
+        ax.loglog(h_arr[mask], l2_arr[mask] * 100, "bo-", lw=2.5, ms=9,
                   label="L2 error vs Mie", zorder=3)
 
         if mask.sum() >= 2:
             h_ref = np.array([h_arr[mask][0], h_arr[mask][-1]])
             for p_ord, ls, alpha in [(2, "--", 0.55), (3, "-.", 0.45)]:
-                C = l2_arr[mask][0] / h_arr[mask][0] ** p_ord
+                C = l2_arr[mask][0] * 100 / h_arr[mask][0] ** p_ord
                 ax.loglog(h_ref, C * h_ref ** p_ord, ls, alpha=alpha,
                           lw=1.8, label=f"O(h^{p_ord})")
 
         # Colour scatter by regime
         colours = ["#2ecc71" if kh < 0.3 else "#f39c12" if kh < 0.5
                    else "#e74c3c" for kh in kh_arr[mask]]
-        for hv, ev, col in zip(h_arr[mask], l2_arr[mask], colours):
+        for hv, ev, col in zip(h_arr[mask], l2_arr[mask] * 100, colours):
             ax.loglog(hv, ev, "o", color=col, ms=9, zorder=4)
 
         ax.set(xlabel="Average element size h [m]",
-               ylabel="L2 relative error  ‖FEM−Mie‖/‖Mie‖",
+               ylabel="Relative L2 error [%]",
                title="Convergence: L2 error vs mesh size")
         ax.legend(fontsize=10)
         ax.grid(True, alpha=0.3, which="both", ls=":")
@@ -243,22 +248,35 @@ if __name__ == "__main__":
                 transform=ax.transAxes, ha="right", va="bottom",
                 fontsize=8, color="gray")
 
-        # Right: solution norm vs DOFs
+        # Right: L2 error vs DOFs
         ax = axes[1]
-        ax.semilogx(dof_arr, norm_arr, "rs-", lw=2.5, ms=9,
-                    markerfacecolor="red", markeredgecolor="darkred",
-                    markeredgewidth=1.5, label="‖Es‖ (L2 norm)")
+        mask = l2_arr > 0
 
-        conv_pct = (abs(norm_arr[-1] - norm_arr[-2]) / norm_arr[-2] * 100
-                    if len(norm_arr) >= 2 else float("nan"))
+        ax.loglog(dof_arr[mask], l2_arr[mask] * 100, "rs-", lw=2.5, ms=9,
+                  markerfacecolor="red", markeredgecolor="darkred",
+                  markeredgewidth=1.5, label="L2 error vs Mie")
+
+        # O(1/N) reference line — in 2D: h ~ 1/sqrt(N), Error ~ h^2 ~ 1/N
+        if mask.sum() >= 2:
+            dof_ref = np.array([dof_arr[mask][0], dof_arr[mask][-1]])
+            C_dof   = l2_arr[mask][0] * 100 * dof_arr[mask][0]
+            ax.loglog(dof_ref, C_dof / dof_ref, "k--", alpha=0.5,
+                      lw=1.8, label="O(1/N) reference")
+
+        # Colour scatter by regime (matches left plot)
+        for dv, ev, col in zip(dof_arr[mask], l2_arr[mask] * 100, colours):
+            ax.loglog(dv, ev, "o", color=col, ms=9, zorder=4)
+
+        final_err = l2_arr[mask][-1] * 100 if mask.sum() > 0 else float("nan")
         ax.text(0.05, 0.95,
-                f"Δ (finest vs 2nd finest): {conv_pct:.2f}%",
+                f"Finest Mesh Error: {final_err:.3f}%",
                 transform=ax.transAxes, va="top",
                 bbox=dict(boxstyle="round", facecolor="lightyellow",
                           edgecolor="orange", lw=1.5))
-        ax.set(xlabel="Number of DOFs",
-               ylabel="‖Es‖ (L2 norm)",
-               title="Solution norm vs DOFs")
+
+        ax.set(xlabel="Number of DOFs (N)",
+               ylabel="Relative L2 error [%]",
+               title="Convergence: L2 error vs DOFs")
         ax.legend(fontsize=10)
         ax.grid(True, alpha=0.3, which="both", ls=":")
 
@@ -271,7 +289,6 @@ if __name__ == "__main__":
                  h=h_arr,
                  kh=kh_arr,
                  l2_err=l2_arr,
-                 l2_norm=norm_arr,
                  dofs=dof_arr,
                  mesh_factors=np.array(MESH_FACTORS))
         print("Saved: convergence_results.npz")

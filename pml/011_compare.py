@@ -316,6 +316,22 @@ if __name__ == "__main__":
     elif errors["far_err"] > errors["near_err"] * 2:
         print("  Far-field error >> near-field: ABC boundary may be too coarse.")
 
+    print()
+    print("=" * 60)
+    print("ERROR METRICS SUMMARY")
+    print("=" * 60)
+    print(f"  {'Metric':<30} {'Value':>10}")
+    print(f"  {'-'*42}")
+    print(f"  {'L2 relative error':<30} {errors['l2']*100:>9.3f}%")
+    print(f"  {'L-inf (max) error':<30} {errors['linf']*100:>9.3f}%")
+    print(f"  {'Location of max error':<30} {errors['linf_x']:>9.3f} m")
+    print(f"  {'Mean abs. relative error':<30} {errors['mare']*100:>9.3f}%")
+    print(f"  {'Near-field error (r<2λ)':<30} {errors['near_err']*100:>9.3f}%")
+    print(f"  {'Far-field error  (r>2.5λ)':<30} {errors['far_err']*100:>9.3f}%")
+    print(f"  {'-'*42}")
+    print(f"  {'Overall verdict':<30} {verdict:>10}")
+    print("=" * 60)
+
     # ── Plot & save ───────────────────────────────────────────────────────────
     print()
     print("=" * 60)
@@ -333,7 +349,7 @@ if __name__ == "__main__":
     print()
     print("=" * 60)
     print("Exporting Mie field onto FEM mesh for ParaView...")
-    _, _, mesh, _, _, _ = solve_pec_cylinder(wl / 30, wl / 10, wl / 8)
+    _, _, mesh, _, _, _, _ = solve_pec_cylinder(wl / 30, wl / 10, wl / 8)
     export_mie_to_bp(mesh)
 
     print()

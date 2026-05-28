@@ -247,6 +247,7 @@ def solve_pec_cylinder(lc_cyl, lc_dom, lc_pml=None, params=None,
     Es_h      : dolfinx Function — scattered field (N1curl)
     Eb        : dolfinx Function — incident field   (N1curl)
     mesh      : dolfinx Mesh
+    cell_tags : dolfinx MeshTags — subdomain markers (tag 2 = background)
     num_cells : int
     num_dofs  : int
     h_avg     : float — mean element diameter in background domain [m]
@@ -378,7 +379,7 @@ def solve_pec_cylinder(lc_cyl, lc_dom, lc_pml=None, params=None,
     Es_h = problem.solve()
     Es_h.name = "Scattered_Field"
 
-    return Es_h, Eb, msh, num_cells, num_dofs, h_avg
+    return Es_h, Eb, msh, cell_tags, num_cells, num_dofs, h_avg
 
 
 # ── Stand-alone entry point ───────────────────────────────────────────────────
@@ -404,7 +405,7 @@ if __name__ == "__main__":
         print(f"  alpha  = {p['alpha']}  (PML absorption strength)")
         print()
 
-    Es_h, Eb, msh, num_cells, num_dofs, h_avg = solve_pec_cylinder(
+    Es_h, Eb, msh, cell_tags, num_cells, num_dofs, h_avg = solve_pec_cylinder(
         lc_cyl, lc_dom, lc_pml
     )
 
@@ -470,4 +471,4 @@ if __name__ == "__main__":
         print("  Saved: E_scattered.bp, E_total.bp, E_incident.bp")
         print("  Saved: fem_scattered.npz  (for compare.py)")
         print()
-        print("  Next: python 011_compare.py")
+        print("  Next: python 011_compare.py")  

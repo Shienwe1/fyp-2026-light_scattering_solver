@@ -719,6 +719,46 @@ if __name__ == "__main__":
                  shift=shift, sensitivity=sens)
         print("  Saved: biosensor_results.npz")
 
+    # Broadcast peak_bnd to all ranks — it was computed only on rank 0
+    peak_bnd_shared = comm.bcast(peak_bnd if comm.rank == 0 else None, root=0)
+
+    # ── Export Near-Field at Resonance for ParaView ───────────────────────────
+    if comm.rank == 0:
+        print()
+        print("=" * 65)
+        print(f"GENERATING PARAVIEW EXPORT AT PEAK RESONANCE ({peak_bnd_shared:.1f} nm)")
+        print("=" * 65)
+
+    # Build a fresh mesh context for the bound protein state
+    ctx_viz = build_biosensor_mesh(
+        n_shell=p["n_shell_bound"],
+        mesh_filename="mesh_hotspot.msh"
+    )
+
+    # Run the solver for exactly ONE wavelength (the resonance peak)
+    peak_wl_um = peak_bnd_shared / 1e3
+    sweep_wavelengths(ctx_viz, np.array([peak_wl_um]), verbose=False)
+
+    # Interpolate N1curl → CG before VTXWriter (required — VTX cannot
+    # write N1curl functions directly)
+    degree_viz = ctx_viz["p"]["degree"]
+    msh_viz    = ctx_viz["msh"]
+    V_cg_viz   = functionspace(
+        msh_viz, ("Lagrange", degree_viz, (msh_viz.geometry.dim,))
+    )
+    E_total_cg = Function(V_cg_viz)
+    E_total_cg.name = "E_total"
+    E_total_cg.interpolate(ctx_viz["E_total"])
+
+    with VTXWriter(comm, "biosensor_hotspot.bp", [E_total_cg]) as vtx:
+        vtx.write(0.0)
+
+    if comm.rank == 0:
+        print("  Saved: biosensor_hotspot.bp")
+        print("  Open in ParaView → Filters → Calculator →")
+        print("       sqrt(E_total_0^2 + E_total_1^2)")
+        print("  to visualize near-field enhancement at LSPR resonance.")
+
         # ── Plot ───────────────────────────────────────────────────────────────
         fig, axes = plt.subplots(1, 3, figsize=(16, 5))
         fig.suptitle(
